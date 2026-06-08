@@ -1,63 +1,102 @@
+
 # NLP OCR Project
 
-A small OCR + spellchecking project for English (and Telugu assets) that extracts text from images and post-processes it using a simple spellchecker and corpora.
+Lightweight OCR + spellchecking utilities for English (and assets for Telugu). Use this repository to extract text from images and post-process it with simple spell correction and corpora lookups.
 
-## Repository Structure
+## Quick Start
 
-- [backend/](backend/): OCR and spellcheck backend services
-  - [backend/main.py](backend/main.py) — application entry point
-  - [backend/ocr.py](backend/ocr.py) — OCR-related utilities
-  - [backend/spellcheck.py](backend/spellcheck.py) — simple spellchecking functions
-- [frontend/](frontend/) — minimal frontend runner ([frontend/index.py](frontend/index.py))
-- [corpus/](corpus/) — text corpora and wordlists
-  - [corpus/english_corpus.txt](corpus/english_corpus.txt)
-  - [corpus/english_words.txt](corpus/english_words.txt)
-- `requirements.txt` — Python dependencies
-
-## Requirements
-
-- Python 3.8+
-- Install dependencies from `requirements.txt`.
+- Python 3.8 or newer
+- Install dependencies:
 
 ```bash
 python -m pip install -r requirements.txt
 ```
 
-## Running
-
-Backend (OCR + spellcheck):
+Run the backend (basic invocation):
 
 ```bash
 python backend/main.py
 ```
 
-Frontend (simple runner):
+Run the frontend demo (if present):
 
 ```bash
 python frontend/index.py
 ```
 
-Adjust commands if you prefer running modules with `-m` or via a virtual environment.
+You can redirect script output to a file to save extracted text, for example:
+
+```bash
+python backend/main.py > extracted_text.txt
+```
+
+## Folder Structure
+
+Top-level layout (important files and folders):
+
+- [backend/](backend/) — OCR and spellcheck logic
+  - [backend/main.py](backend/main.py) — application entry point / runner
+  - [backend/ocr.py](backend/ocr.py) — OCR utilities and image-to-text helpers
+  - [backend/spellcheck.py](backend/spellcheck.py) — spell-check and correction utilities
+- [frontend/](frontend/) — minimal frontend/demo runner
+  - [frontend/index.py](frontend/index.py)
+- [corpus/](corpus/) — corpora and wordlists used for post-processing
+  - [corpus/english_corpus.txt](corpus/english_corpus.txt)
+  - [corpus/english_words.txt](corpus/english_words.txt)
+  - [corpus/telugu_words.txt](corpus/telugu_words.txt) (if present)
+- `requirements.txt` — Python dependencies
+- `.gitignore` — files to ignore (venv, zip bundles, images, caches)
+
+## Inputs and Outputs
+
+This section explains the expected inputs, where to put them, and where outputs appear.
+
+Inputs
+- Images: JPEG/PNG/TIFF images containing text to extract. You can keep them anywhere; a recommended location is `data/images/` (create this folder).
+- Text files: plain `.txt` files used as corpora or dictionaries are under `corpus/`.
+
+Outputs
+- Extracted text: by default the scripts print extracted text to standard output. Redirect to a file to save results (see Quick Start example).
+- Spellchecked text: the spellchecking utilities operate on text strings or files and will either print corrected text or return corrected strings when used as a module.
+
+Example workflows
+
+1) Basic image -> text (single file)
+
+```bash
+python backend/main.py path/to/image.jpg > output.txt
+```
+
+2) Batch processing (all images in a folder)
+
+```bash
+for img in data/images/*.{jpg,png}; do python backend/main.py "$img" >> all_outputs.txt; done
+```
+
+3) Spellcheck a saved text file
+
+```bash
+python -c "from backend import spellcheck; print(spellcheck.correct(open('output.txt').read()))" > output_corrected.txt
+```
+
+Note: the concrete CLI flags and behavior depend on the scripts in `backend/`. If you want, I can add explicit flags (e.g., `--input`, `--output`, `--batch`) to `backend/main.py` to make these workflows deterministic.
 
 ## Corpus and Data
 
-Place or update corpora in the `corpus/` folder. The repo already includes sample files:
-
-- [corpus/english_corpus.txt](corpus/english_corpus.txt)
-- [corpus/english_words.txt](corpus/english_words.txt)
+Place custom corpora, dictionaries or additional wordlists in the `corpus/` folder. The repository includes sample English word lists and a corpus to get started.
 
 ## Development Notes
 
-- The backend contains OCR and spellcheck logic in `backend/`. Review [backend/ocr.py](backend/ocr.py) and [backend/spellcheck.py](backend/spellcheck.py) to adapt models, thresholds, or external OCR engines.
-- The frontend is a small runner at [frontend/index.py](frontend/index.py).
+- Inspect and adapt OCR settings in [backend/ocr.py](backend/ocr.py) if you swap OCR engines or change preprocessing.
+- Update or extend spell correction logic in [backend/spellcheck.py](backend/spellcheck.py) to use different algorithms, weighting, or external libraries.
 
 ## Contributing
 
-Contributions welcome. Open an issue or submit a PR with a short description of the change.
+Contributions welcome. File an issue describing the feature, then open a PR with a concise change and tests/examples where appropriate.
 
 ## License
 
-This project has no license file by default. Add a `LICENSE` file (e.g., MIT) if you intend to make this public.
+No license file is included. Add a `LICENSE` (for example MIT) if you intend to publish this repository publicly.
 
 ---
-Generated README for local development. If you'd like, I can add a `LICENSE`, CI workflow, or expand README sections with examples and API docs.
+If you'd like, I can update `backend/main.py` to accept `--input`/`--output` flags and add a small integration example — tell me which behavior you prefer.
