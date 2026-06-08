@@ -1,0 +1,8 @@
+streamlit
+pillow
+uvicorn
+fastapi
+pytesseract
+requests
+python-multipart
+python-docx

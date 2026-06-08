@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Tesseract OCR</title>
+
+    <style>
+        body {
+            font-family: Arial;
+            margin: 40px;
+        }
+
+        #preview {
+            width: 220px;
+            height: auto;
+            margin-top: 15px;
+            border: 1px solid #ccc;
+            padding: 5px;
+            display: block;
+        }
+
+        textarea {
+            width: 100%;
+            height: 200px;
+            margin-top: 10px;
+        }
+
+        pre {
+            background: #f4f4f4;
+            padding: 10px;
+            white-space: pre-wrap;
+        }
+
+        button {
+            margin-top: 10px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            padding: 8px 16px;
+        }
+
+        #downloadDocx {
+            display: block;
+            margin: 20px auto;
+        }
+
+        h2 {
+            text-align: center;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 12px;
+        }
+
+        th,
+        td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+            font-size: 14px;
+        }
+
+        th {
+            background: #f0f5ff;
+        }
+
+        .badge-correct {
+            color: #0b7a33;
+            font-weight: 600;
+        }
+
+        .badge-wrong {
+            color: #b42318;
+            font-weight: 600;
+        }
+
+        .part-correct {
+            background: #dcfce7;
+            padding: 1px 3px;
+            border-radius: 3px;
+        }
+
+        .part-wrong {
+            background: #fee2e2;
+            padding: 1px 3px;
+            border-radius: 3px;
+        }
+
+        .section {
+            margin-top: 18px;
+        }
+
+    </style>
+</head>
+
+<body>
+
+    <h2>Tesseract OCR</h2>
+
+    <input type="file" id="fileInput" accept="image/*"><br><br>
+
+    <select id="lang">
+        <option value="tel">Telugu</option>
+        <option value="eng">English</option>
+    </select>
+
+    <br><br>
+    <button id="extractBtn">Extract Text</button>
+
+    <img id="preview">
+
+    <h3>Extracted Text</h3>
+    <textarea id="output"></textarea>
+    <button id="downloadText">Download Text</button>
+
+    <h3>Statistics</h3>
+    <pre id="stats"></pre>
+    <button id="downloadStats">Download Statistics</button>
+
+    <div class="section">
+        <h3>Spell Checker</h3>
+        <button id="spellBtn">Check Spelling</button>
+        <div id="spellSummary"></div>
+        <div id="spellTable"></div>
+        <h4>Backoff Highlight (Partial Correctness)</h4>
+        <div id="backoffView"></div>
+        <h4>Complexity</h4>
+        <pre id="complexityView"></pre>
+    </div>
+
+
+    <button id="downloadDocx">Download DOCX</button>
+
+    <script>
+        let selectedFile = null;
+        let lastStatsText = "";
+
+        const fileInput = document.getElementById("fileInput");
+        const preview = document.getElementById("preview");
+        const output = document.getElementById("output");
+        const stats = document.getElementById("stats");
+        const extractBtn = document.getElementById("extractBtn");
+        const lang = document.getElementById("lang");
+        const spellBtn = document.getElementById("spellBtn");
+        const spellSummary = document.getElementById("spellSummary");
+        const spellTable = document.getElementById("spellTable");
+        const backoffView = document.getElementById("backoffView");
+        const complexityView = document.getElementById("complexityView");
+
+        fileInput.addEventListener("change", () => {
+            selectedFile = fileInput.files[0];
+            if (selectedFile) {
+                preview.src = URL.createObjectURL(selectedFile);
+            }
+        });
+
+        function formatStats(s) {
+            return `
+Characters      : ${s.characters}
+Words           : ${s.words}
+Sentences       : ${s.sentences}
+Avg Word Length : ${s.avg_word_len}
+`.trim();
+        }
+
+        function downloadFile(filename, content) {
+            const blob = new Blob([content], { type: "text/plain" });
+            const a = document.createElement("a");
+            a.href = URL.createObjectURL(blob);
+            a.download = filename;
+            a.click();
+        }
+
+        extractBtn.addEventListener("click", async () => {
+            if (!selectedFile) {
+                alert("Upload an image first");
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append("file", selectedFile);
+            formData.append("lang", lang.value);
+
+            const res = await fetch("/ocr", {
+                method: "POST",
+                body: formData
+            });
+
+            const data = await res.json();
+
+            output.value = data.text;
+            lastStatsText = formatStats(data.stats);
+            stats.textContent = lastStatsText;
+        });
+
+        document.getElementById("downloadText").onclick = () => {
+            downloadFile("ocr_text.txt", output.value);
+        };
+
+        document.getElementById("downloadStats").onclick = () => {
+            downloadFile("ocr_statistics.txt", lastStatsText);
+        };
+
+        document.getElementById("downloadDocx").addEventListener("click", async () => {
+            if (!selectedFile) {
+                alert("Upload an image first");
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append("file", selectedFile);
+            formData.append("lang", lang.value);
+
+            const res = await fetch("/ocr-docx", {
+                method: "POST",
+                body: formData
+            });
+
+            const blob = await res.blob();
+            const url = window.URL.createObjectURL(blob);
+
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = "ocr_result.docx";
+            a.click();
+
+            window.URL.revokeObjectURL(url);
+        });
+
+        function escapeHtml(value) {
+            return value
+                .replaceAll("&", "&amp;")
+                .replaceAll("<", "&lt;")
+                .replaceAll(">", "&gt;");
+        }
+
+        function renderSpellTable(rows) {
+            if (!rows.length) {
+                spellTable.innerHTML = "<p>No tokens found.</p>";
+                return;
+            }
+            const header = `
+<table>
+  <thead>
+    <tr>
+      <th>Word</th>
+      <th>Hamming</th>
+      <th>LCS</th>
+      <th>Levenshtein</th>
+      <th>Jaro</th>
+      <th>Benchmark</th>
+    </tr>
+  </thead>
+  <tbody>
+`;
+
+            const body = rows.map((row) => {
+                const badge = row.benchmark === "Correct" ? "badge-correct" : "badge-wrong";
+                return `
+    <tr>
+      <td>${escapeHtml(row.word)}</td>
+      <td>${escapeHtml(row.hamming || "-")}</td>
+      <td>${escapeHtml(row.lcs)}</td>
+      <td>${escapeHtml(row.levenshtein)}</td>
+      <td>${escapeHtml(row.jaro)}</td>
+      <td class="${badge}">${escapeHtml(row.benchmark)}</td>
+    </tr>
+`;
+            }).join("");
+
+            spellTable.innerHTML = `${header}${body}</tbody></table>`;
+        }
+
+        function renderBackoff(rows) {
+            const lines = rows.map((row) => {
+                const parts = row.backoff_parts.map((p) => {
+                    const cls = p.status === "correct" ? "part-correct" : "part-wrong";
+                    const hint = p.suggestion ? ` (suggestion: ${escapeHtml(p.suggestion)})` : "";
+                    return `<span class="${cls}">${escapeHtml(p.text)}</span>${hint}`;
+                }).join(" ");
+                return `<p><strong>${escapeHtml(row.word)}:</strong> ${parts}</p>`;
+            });
+            backoffView.innerHTML = lines.join("");
+        }
+
+        spellBtn.addEventListener("click", async () => {
+            if (!output.value.trim()) {
+                alert("Run OCR first or enter text in Extracted Text box.");
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append("text", output.value);
+            formData.append("lang", lang.value);
+
+            const res = await fetch("/spell-check", {
+                method: "POST",
+                body: formData
+            });
+
+            const data = await res.json();
+            const rows = data.tokens || [];
+            const correctCount = rows.filter((r) => r.benchmark === "Correct").length;
+
+            spellSummary.innerHTML = `<p><strong>Tokens:</strong> ${rows.length} | <strong>Correct:</strong> ${correctCount} | <strong>Wrong:</strong> ${rows.length - correctCount}</p>`;
+            renderSpellTable(rows);
+            renderBackoff(rows);
+            complexityView.textContent = JSON.stringify(data.complexity || {}, null, 2);
+        });
+
+    </script>
+
+</body>
+
+</html>
